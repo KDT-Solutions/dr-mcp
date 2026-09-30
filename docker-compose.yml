@@ -1,0 +1,28 @@
+services:
+  dr-mcp:
+    # Fertiges Image aus der GitHub Container Registry - wird per GitHub
+    # Actions bei jedem Push auf main gebaut (.github/workflows/docker-publish.yml).
+    # Ist das Package auf ghcr.io privat, braucht Portainer unter "Registries"
+    # einen ghcr.io-Eintrag mit einem GitHub-Token (Scope "read:packages").
+    image: ghcr.io/kdt-solutions/dr-mcp:latest
+    # Bei jedem Deploy/Redeploy das Image neu ziehen statt einer evtl.
+    # veralteten lokalen :latest-Kopie.
+    pull_policy: always
+    container_name: dr-mcp-cloud
+    restart: unless-stopped
+    environment:
+      - DR_BASE_URL=${DR_BASE_URL}
+      - DR_CLIENT_ID=${DR_CLIENT_ID}
+      - DR_CLIENT_SECRET=${DR_CLIENT_SECRET}
+      - DR_TOKEN_URL=${DR_TOKEN_URL:-}
+      - DR_SCOPE=${DR_SCOPE:-}
+      - DR_TIMEOUT=${DR_TIMEOUT:-30}
+      - MCP_API_KEY=${MCP_API_KEY}
+      - MCP_TRANSPORT=http
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+    ports:
+      # Öffentlich gebunden (wie also-mcp) - die Zugriffskontrolle ist das
+      # zwingende MCP_API_KEY-Bearer-Token, nicht die Bind-Adresse. TLS
+      # terminiert der vorgelagerte Reverse-Proxy.
+      - "${MCP_HOST_PORT:-8425}:8000"
