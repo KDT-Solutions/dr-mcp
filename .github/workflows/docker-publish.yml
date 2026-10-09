@@ -49,14 +49,18 @@ jobs:
     steps:
       - name: Repository auschecken
         uses: actions/checkout@v4
+        with:
+          # Volle Historie, damit die Patch-Version (Anzahl Commits) stimmt
+          fetch-depth: 0
 
-      - name: Version aus pyproject.toml ermitteln
+      - name: Version ermitteln
         id: version
         run: |
-          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' pyproject.toml)
-          test -n "$version"
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "Version: ${version}"
+          base=$(sed -n 's/^version = "\([0-9]*\.[0-9]*\)\..*"$/\1/p' pyproject.toml)
+          count=$(git rev-list --count HEAD -- Dockerfile pyproject.toml src/ .github/workflows/docker-publish.yml)
+          test -n "$base" && test -n "$count"
+          echo "version=${base}.${count}" >> "$GITHUB_OUTPUT"
+          echo "Version: ${base}.${count}"
 
       - name: Image-Namen in Kleinbuchstaben ermitteln
         id: image

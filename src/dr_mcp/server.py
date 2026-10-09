@@ -49,25 +49,51 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("dr_mcp")
 
 
-def _read_version() -> str:
-    """APP_VERSION (vom Docker-Build gesetzt), sonst Version aus pyproject.toml/Paket-Metadaten."""
-    env_version = os.environ.get("APP_VERSION", "").strip()
-    if env_version:
-        return env_version
+# Version = <Major.Minor>.<Patch>. Major.Minor wird in pyproject.toml von Hand
+# gepflegt, der Patch-Teil zaehlt automatisch: Anzahl Commits, die eine der
+# build-relevanten Dateien (Paket, pyproject.toml, Dockerfile, Workflow)
+# geaendert haben. Im Docker-Image setzt GitHub Actions die fertige Version als
+# APP_VERSION, lokal (Git-Checkout) wird sie aus der Git-Historie berechnet.
+_REPO_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_VERSION_PATHS = ["Dockerfile", "pyproject.toml", "src/", ".github/workflows/docker-publish.yml"]
+
+
+def _version_base() -> str:
+    """Major.Minor aus pyproject.toml (Checkout), sonst aus den installierten Paket-Metadaten."""
+    raw = ""
     try:
         import tomllib
 
-        pyproject = os.path.join(os.path.dirname(__file__), "..", "..", "pyproject.toml")
-        with open(pyproject, "rb") as f:
-            return tomllib.load(f)["project"]["version"]
+        with open(os.path.join(_REPO_DIR, "pyproject.toml"), "rb") as f:
+            raw = tomllib.load(f)["project"]["version"]
+    except Exception:
+        try:
+            from importlib.metadata import version
+
+            raw = version("dr-mcp")
+        except Exception:
+            pass
+    return ".".join(raw.split(".")[:2]) if raw else "0.0"
+
+
+def _read_version() -> str:
+    """APP_VERSION (vom Docker-Build gesetzt), sonst aus der Git-Historie berechnet."""
+    env_version = os.environ.get("APP_VERSION", "").strip()
+    if env_version:
+        return env_version
+    base = _version_base()
+    try:
+        import subprocess
+
+        count = subprocess.run(
+            ["git", "rev-list", "--count", "HEAD", "--", *_VERSION_PATHS],
+            cwd=_REPO_DIR, capture_output=True, text=True, timeout=5, check=True,
+        ).stdout.strip()
+        if count.isdigit():
+            return f"{base}.{count}"
     except Exception:
         pass
-    try:
-        from importlib.metadata import version
-
-        return version("dr-mcp")
-    except Exception:
-        return "0.0.0-dev"
+    return f"{base}.0-dev"
 
 
 __version__ = _read_version()
