@@ -1,6 +1,7 @@
 [project]
 name = "dr-mcp"
-# Bei jeder Änderung erhöhen - uvx cached Builds pro Version (siehe README, "uv cache clean").
+# Nur Major.Minor wird von Hand gepflegt, der Patch-Teil wird automatisch aus der
+# Git-Historie gezählt (siehe _read_version in src/dr_mcp/server.py).
 version = "0.1.0"
 description = "MCP-Server für die Digital Republic API (SIM-/eSIM-Verwaltung für Geschäftskunden)"
 readme = "README.md"

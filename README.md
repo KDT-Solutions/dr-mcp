@@ -83,7 +83,7 @@ Typischer eSIM-Ablauf:
 }
 ```
 
-**Wichtig:** uvx cached gebaute Pakete pro Version. Die Version in `pyproject.toml` wird deshalb bei jeder Änderung erhöht. Falls trotzdem ein alter Stand läuft: `uv cache clean` ausführen und Claude Desktop neu starten.
+**Wichtig:** uvx cached gebaute Pakete pro Paketversion. Die Paketversion in `pyproject.toml` ändert sich nur bei Major/Minor, der automatisch gezählte Patch-Teil (siehe "Versionierung") nicht. Nach einer Änderung deshalb `uv cache clean` ausführen (oder einmal `uvx --refresh ...`) und Claude Desktop neu starten. `get_version` zeigt danach den neuen Stand.
 
 ## Tests
 
@@ -96,7 +96,9 @@ Die Tests laufen komplett gegen eine gemockte API (respx), es gibt keinen Zugrif
 
 ## Docker-Image (GitHub Actions → ghcr.io)
 
-Bei jedem Push auf `main` laufen zuerst die Tests, danach baut `.github/workflows/docker-publish.yml` das Image und veröffentlicht es als `ghcr.io/<owner>/<repo>` mit den Tags `latest`, `<commit-sha>` und `<version aus pyproject.toml>`.
+Bei jedem Push auf `main` laufen zuerst die Tests, danach baut `.github/workflows/docker-publish.yml` das Image und veröffentlicht es als `ghcr.io/<owner>/<repo>` mit den Tags `latest`, `<commit-sha>` und `<version>`.
+
+**Versionierung:** Die Version ist `<Major.Minor>.<Patch>`. Major.Minor steht in `pyproject.toml` und wird nur von Hand geändert. Der Patch-Teil ist die Anzahl Commits, die `src/`, `pyproject.toml`, das `Dockerfile` oder den Workflow geändert haben, und steigt damit bei jeder Code-Änderung automatisch. GitHub Actions gibt Version und Commit ins Image mit, `get_version` liefert beides.
 
 Nach dem ersten Push ist das Package auf GitHub standardmässig privat. Entweder in den Package-Settings auf **Public** stellen oder in Portainer unter **Registries** einen ghcr.io-Eintrag mit einem Token (Scope `read:packages`) hinterlegen.
 
