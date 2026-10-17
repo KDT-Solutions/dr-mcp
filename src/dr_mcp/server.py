@@ -9,13 +9,15 @@ Konfiguration (ausschliesslich über Umgebungsvariablen):
   DR_SCOPE           - optional. Wird nur mitgeschickt, wenn gesetzt (z.B. "read write").
   DR_TIMEOUT         - optional. HTTP-Timeout in Sekunden (Standard 30).
 
-  MCP_TRANSPORT      - "stdio" (Standard, lokal) oder "http" (Cloud/Docker).
-  MCP_HOST           - Bind-Adresse im HTTP-Modus (Standard 0.0.0.0).
-  MCP_PORT           - Port im HTTP-Modus (Standard 8000).
-  MCP_API_KEY        - Pflicht bei MCP_TRANSPORT=http. Statisches Bearer-Token;
+  MCP_HOST           - Bind-Adresse des HTTP-Servers (Standard 0.0.0.0).
+  MCP_PORT           - Port des HTTP-Servers (Standard 8000).
+  MCP_API_KEY        - Pflicht. Statisches Bearer-Token;
                        jeder Request muss "Authorization: Bearer <token>" senden.
-                       Ohne MCP_API_KEY startet der HTTP-Modus nicht - gleiches
+                       Ohne MCP_API_KEY startet der Server nicht - gleiches
                        Muster wie plesk-mcp/also-mcp/zammad-mcp.
+
+Läuft ausschliesslich als Docker-Container mit Streamable HTTP hinter einem
+Reverse-Proxy; ein lokaler Betrieb (stdio/uvx) ist nicht vorgesehen.
 
 Jedes schreibende Tool verlangt confirm=true (wie die DNS-Tools im plesk-mcp).
 Ohne confirm=true wird nichts an die API gesendet; die Antwort beschreibt,
@@ -38,7 +40,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from . import validation as v
 from .client import DigitalRepublicClient, DigitalRepublicError
 
-# Logs immer nach stderr - stdout gehört im stdio-Modus dem MCP-Protokoll.
+# Logs nach stderr (landen im Container-Log).
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO").upper(),
     stream=sys.stderr,
@@ -386,7 +388,7 @@ class _BearerAuthMiddleware:
 def _build_http_app(api_key: str, host: str = "0.0.0.0"):
     if not api_key:
         raise RuntimeError(
-            "MCP_TRANSPORT=http erfordert MCP_API_KEY (statisches Bearer-Token) - "
+            "MCP_API_KEY (statisches Bearer-Token) fehlt - "
             "aus Sicherheitsgründen kein Start ohne Token."
         )
     from mcp.server.transport_security import TransportSecuritySettings
@@ -429,21 +431,17 @@ async def _run_http_server(api_key: str, host: str, port: int) -> None:
 
 
 def main() -> None:
-    transport = os.environ.get("MCP_TRANSPORT", "stdio").lower()
-    if transport in ("http", "streamable-http"):
-        api_key = os.environ.get("MCP_API_KEY", "")
-        if not api_key:
-            raise RuntimeError(
-                "MCP_TRANSPORT=http erfordert MCP_API_KEY (statisches Bearer-Token) - "
-                "aus Sicherheitsgründen kein Start ohne Token."
-            )
-        import asyncio
+    api_key = os.environ.get("MCP_API_KEY", "")
+    if not api_key:
+        raise RuntimeError(
+            "MCP_API_KEY (statisches Bearer-Token) fehlt - "
+            "aus Sicherheitsgründen kein Start ohne Token."
+        )
+    import asyncio
 
-        host = os.environ.get("MCP_HOST", "0.0.0.0")
-        port = int(os.environ.get("MCP_PORT", "8000"))
-        asyncio.run(_run_http_server(api_key, host, port))
-    else:
-        mcp.run(transport="stdio")
+    host = os.environ.get("MCP_HOST", "0.0.0.0")
+    port = int(os.environ.get("MCP_PORT", "8000"))
+    asyncio.run(_run_http_server(api_key, host, port))
 
 
 if __name__ == "__main__":

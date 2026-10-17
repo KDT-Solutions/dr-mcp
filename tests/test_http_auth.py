@@ -29,8 +29,7 @@ def init_request():
 HEADERS = {"Accept": "application/json, text/event-stream", "Content-Type": "application/json"}
 
 
-def test_http_mode_refuses_start_without_api_key(server, monkeypatch):
-    monkeypatch.setenv("MCP_TRANSPORT", "http")
+def test_refuses_start_without_api_key(server, monkeypatch):
     monkeypatch.delenv("MCP_API_KEY", raising=False)
     with pytest.raises(RuntimeError, match="MCP_API_KEY"):
         server.main()

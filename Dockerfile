@@ -11,8 +11,7 @@ RUN pip install --no-cache-dir .
 RUN useradd --system --no-create-home --uid 10001 mcp
 USER mcp
 
-ENV MCP_TRANSPORT=http \
-    MCP_HOST=0.0.0.0 \
+ENV MCP_HOST=0.0.0.0 \
     MCP_PORT=8000 \
     PYTHONUNBUFFERED=1
 
