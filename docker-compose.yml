@@ -18,7 +18,6 @@ services:
       - DR_SCOPE=${DR_SCOPE:-}
       - DR_TIMEOUT=${DR_TIMEOUT:-30}
       - MCP_API_KEY=${MCP_API_KEY}
-      - MCP_TRANSPORT=http
       - MCP_HOST=0.0.0.0
       - MCP_PORT=8000
     ports:

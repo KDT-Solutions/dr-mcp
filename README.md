@@ -2,10 +2,7 @@
 
 MCP-Server für die Digital Republic API (Schweizer Mobilfunk-Anbieter, SIM-/eSIM-Verwaltung für Geschäftskunden). Damit lassen sich SIM-Karten auflisten, Details und Abos abfragen, Aliase ändern, Abos wechseln, SIMs/eSIMs aktivieren und Netzwerk-Resets auslösen.
 
-Zwei Betriebsarten:
-
-- **stdio (lokal)**: klassischer lokaler MCP-Server via uvx/Claude Desktop.
-- **HTTP (Cloud)**: Docker-Container mit Streamable-HTTP-Transport (Portainer), geschützt durch ein statisches Bearer-Token.
+Läuft ausschliesslich als Docker-Container mit Streamable-HTTP-Transport (Portainer) hinter einem Reverse-Proxy, geschützt durch ein statisches Bearer-Token. Ein lokaler Betrieb (stdio/uvx) ist nicht vorgesehen.
 
 Alle Zugangsdaten und Einstellungen kommen ausschliesslich aus Umgebungsvariablen. Im Repo stehen keine Secrets, Hostnamen oder Kundendaten.
 
@@ -27,8 +24,7 @@ Alle Zugangsdaten und Einstellungen kommen ausschliesslich aus Umgebungsvariable
 | `DR_SCOPE` | nein | – | z.B. `read write`; ohne Wert wird kein `scope` gesendet |
 | `DR_TIMEOUT` | nein | `30` | HTTP-Timeout in Sekunden |
 | `LOG_LEVEL` | nein | `INFO` | Log-Level (Logs gehen nach stderr, nie mit Secrets/Tokens) |
-| `MCP_TRANSPORT` | nein | `stdio` | `stdio` = lokal, `http` = Cloud-Modus |
-| `MCP_API_KEY` | **ja, im HTTP-Modus** | – | Statisches Bearer-Token für den MCP-Endpunkt. Ohne dieses Token startet der HTTP-Modus nicht. Erzeugen mit `openssl rand -hex 32` |
+| `MCP_API_KEY` | **ja** | – | Statisches Bearer-Token für den MCP-Endpunkt. Ohne dieses Token startet der Server nicht. Erzeugen mit `openssl rand -hex 32` |
 | `MCP_HOST` | nein | `0.0.0.0` | Bind-Adresse im Container |
 | `MCP_PORT` | nein | `8000` | Port im Container |
 | `MCP_HOST_PORT` | nein | `8425` | Port auf dem Docker-Host (nur docker-compose) |
@@ -64,26 +60,6 @@ Typischer eSIM-Ablauf:
 1. `list_available_subscriptions` (ohne `iccid`) – `productId` wählen
 2. `activate_esim` mit `confirm=true` – liefert eine `order_id`
 3. `get_sim_by_order` – eSIM-Details (z.B. `matching_id`)
-
-## Lokaler Betrieb (stdio, uvx)
-
-```json
-{
-  "mcpServers": {
-    "digitalrepublic": {
-      "command": "uvx",
-      "args": ["--from", "C:/Pfad/zu/dr-mcp", "--python", "3.12", "dr-mcp"],
-      "env": {
-        "DR_BASE_URL": "https://api.example.com/dr",
-        "DR_CLIENT_ID": "your-client-id",
-        "DR_CLIENT_SECRET": "your-client-secret"
-      }
-    }
-  }
-}
-```
-
-**Wichtig:** uvx cached gebaute Pakete pro Paketversion. Die Paketversion in `pyproject.toml` ändert sich nur bei Major/Minor, der automatisch gezählte Patch-Teil (siehe "Versionierung") nicht. Nach einer Änderung deshalb `uv cache clean` ausführen (oder einmal `uvx --refresh ...`) und Claude Desktop neu starten. `get_version` zeigt danach den neuen Stand.
 
 ## Tests
 
@@ -126,7 +102,7 @@ Vor den Container gehört ein Reverse-Proxy mit TLS (z.B. nginx), der eine eigen
 
 ## Sicherheit
 
-- Der HTTP-Modus startet nur mit gesetztem `MCP_API_KEY`, es gibt nie einen ungeschützten Endpunkt.
+- Der Server startet nur mit gesetztem `MCP_API_KEY`, es gibt nie einen ungeschützten Endpunkt.
 - Jeder Request braucht `Authorization: Bearer <MCP_API_KEY>`, sonst `401 unauthorized`. Der Vergleich läuft in konstanter Zeit.
 - CORS-Preflight (`OPTIONS`) wird ohne Token beantwortet, damit browserbasierte MCP-Clients funktionieren; alle anderen Requests laufen durch die Token-Prüfung.
 - Der DNS-Rebinding-Schutz des SDK ist bewusst deaktiviert (wie bei den anderen KDT-MCP-Servern), weil der Server unter einer echten Domain hinter einem Reverse-Proxy läuft. Die Zugriffskontrolle macht das Bearer-Token.
