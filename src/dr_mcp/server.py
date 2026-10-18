@@ -385,6 +385,22 @@ class _BearerAuthMiddleware:
         await self.app(scope, receive, send)
 
 
+def _with_healthz(app):
+    """GET /healthz für den Docker-Healthcheck, ohne Auth. Liefert nur {"status": "ok"} -
+    keine Version, keine Konfiguration. Prüft nur, ob der Prozess antwortet, nicht die
+    Digital-Republic-API (sonst würde ein Ausfall beim Anbieter den Container unhealthy machen).
+    Alle anderen Pfade laufen unverändert durch die Bearer-Prüfung."""
+    from starlette.responses import JSONResponse
+
+    async def router(scope, receive, send):
+        if scope["type"] == "http" and scope["path"] == "/healthz" and scope["method"] in ("GET", "HEAD"):
+            await JSONResponse({"status": "ok"})(scope, receive, send)
+            return
+        await app(scope, receive, send)
+
+    return router
+
+
 def _build_http_app(api_key: str, host: str = "0.0.0.0"):
     if not api_key:
         raise RuntimeError(
@@ -406,7 +422,7 @@ def _build_http_app(api_key: str, host: str = "0.0.0.0"):
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
         host=host,
     )
-    secured_app = _BearerAuthMiddleware(starlette_app, api_key)
+    secured_app = _with_healthz(_BearerAuthMiddleware(starlette_app, api_key))
     # CORS aussen um die Auth-Middleware: Browser-basierte MCP-Clients (z.B.
     # Claude.ai) rufen den Endpoint per Cross-Origin-Fetch auf. Preflight-
     # OPTIONS-Requests (ohne Authorization-Header) beantwortet CORSMiddleware

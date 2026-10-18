@@ -55,6 +55,27 @@ def test_valid_token_passes(http_client):
     assert resp.json()["result"]["serverInfo"]["name"] == "dr-mcp"
 
 
+def test_healthz_without_token_is_200(http_client):
+    resp = http_client.get("/healthz")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+
+
+def test_healthz_does_not_touch_upstream(http_client, api):
+    # api: respx-Mock ohne Routen ausser OAuth - ein Upstream-Aufruf würde gezählt
+    assert http_client.get("/healthz").status_code == 200
+    assert api.calls.call_count == 0
+
+
+@pytest.mark.parametrize("path", ["/healthz/", "/healthzx", "/mcp/healthz", "/"])
+def test_other_paths_still_need_token(http_client, path):
+    assert http_client.get(path).status_code == 401
+
+
+def test_healthz_only_get(http_client):
+    assert http_client.post("/healthz").status_code == 401
+
+
 def test_cors_preflight_without_token(http_client):
     resp = http_client.options(
         "/mcp",

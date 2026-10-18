@@ -21,7 +21,7 @@ services:
       - MCP_HOST=0.0.0.0
       - MCP_PORT=8000
     ports:
-      # Öffentlich gebunden (wie also-mcp) - die Zugriffskontrolle ist das
-      # zwingende MCP_API_KEY-Bearer-Token, nicht die Bind-Adresse. TLS
-      # terminiert der vorgelagerte Reverse-Proxy.
-      - "${MCP_HOST_PORT:-8425}:8000"
+      # Zugriff nur über den Reverse-Proxy mit TLS. MCP_BIND_ADDR auf die IP
+      # des Docker-Hosts setzen, die der Proxy anspricht; ohne MCP_BIND_ADDR
+      # ist der Dienst nur auf 127.0.0.1 erreichbar.
+      - "${MCP_BIND_ADDR:-127.0.0.1}:${MCP_HOST_PORT:-8425}:8000"

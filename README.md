@@ -28,6 +28,7 @@ Alle Zugangsdaten und Einstellungen kommen ausschliesslich aus Umgebungsvariable
 | `MCP_HOST` | nein | `0.0.0.0` | Bind-Adresse im Container |
 | `MCP_PORT` | nein | `8000` | Port im Container |
 | `MCP_HOST_PORT` | nein | `8425` | Port auf dem Docker-Host (nur docker-compose) |
+| `MCP_BIND_ADDR` | nein | `127.0.0.1` | Bind-Adresse auf dem Docker-Host (nur docker-compose). Auf die Host-IP setzen, die der Reverse-Proxy anspricht, z.B. `192.0.2.10` |
 
 ## Tools
 
@@ -84,6 +85,7 @@ Nach dem ersten Push ist das Package auf GitHub standardmässig privat. Entweder
 2. Unter **Environment variables** setzen (landen nicht im Repo):
    - `DR_BASE_URL`, `DR_CLIENT_ID`, `DR_CLIENT_SECRET`
    - `MCP_API_KEY`
+   - `MCP_BIND_ADDR` (Host-IP, die der Reverse-Proxy anspricht)
    - optional `MCP_HOST_PORT`, `DR_SCOPE`, `DR_TIMEOUT`
 3. **Deploy the stack**
 4. Updates: im Stack **Pull and redeploy**, danach mit `get_version` prüfen, welcher Stand läuft
@@ -96,14 +98,18 @@ DR_CLIENT_ID=your-client-id
 DR_CLIENT_SECRET=your-client-secret
 MCP_API_KEY=<openssl rand -hex 32>
 MCP_HOST_PORT=8425
+MCP_BIND_ADDR=192.0.2.10
 ```
+
+> **Wichtig vor dem ersten Redeploy mit Version 0.2:** Das Port-Mapping bindet standardmässig nur noch auf `127.0.0.1`. Vorher im Stack `MCP_BIND_ADDR` auf die Host-IP setzen, die der Reverse-Proxy anspricht - sonst ist der Dienst nur noch auf `127.0.0.1` erreichbar und der Proxy bekommt keine Verbindung.
 
 Vor den Container gehört ein Reverse-Proxy mit TLS (z.B. nginx), der eine eigene Subdomain auf `<docker-host>:<MCP_HOST_PORT>` weiterleitet. In Claude wird der Server dann als Remote-MCP mit `https://dr-mcp.example.com/mcp` und `MCP_API_KEY` als Bearer-Token eingebunden.
 
 ## Sicherheit
 
 - Der Server startet nur mit gesetztem `MCP_API_KEY`, es gibt nie einen ungeschützten Endpunkt.
-- Jeder Request braucht `Authorization: Bearer <MCP_API_KEY>`, sonst `401 unauthorized`. Der Vergleich läuft in konstanter Zeit.
+- Jeder Request (ausser `/healthz`) braucht `Authorization: Bearer <MCP_API_KEY>`, sonst `401 unauthorized`. Der Vergleich läuft in konstanter Zeit.
+- Ausnahme `GET /healthz` für den Docker-Healthcheck: ohne Token, liefert nur `{"status": "ok"}` (keine Version, keine Konfiguration, keine Upstream-Abfrage).
 - CORS-Preflight (`OPTIONS`) wird ohne Token beantwortet, damit browserbasierte MCP-Clients funktionieren; alle anderen Requests laufen durch die Token-Prüfung.
 - Der DNS-Rebinding-Schutz des SDK ist bewusst deaktiviert (wie bei den anderen KDT-MCP-Servern), weil der Server unter einer echten Domain hinter einem Reverse-Proxy läuft. Die Zugriffskontrolle macht das Bearer-Token.
 - Client-Secret und Access-Token werden nie geloggt und aus weitergereichten Fehlertexten entfernt (die API gibt bei ungültigem Token das Token selbst im Fehlertext zurück).
